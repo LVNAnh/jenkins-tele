@@ -11,7 +11,7 @@ pipeline {
     stages {
         stage('Clone Repository') {
             steps {
-                git branch: 'master', url: 'https://github.com/LVNAnh/devops-assignment.git'
+                git branch: 'master', url: 'https://github.com/LVNAnh/jenkins-tele.git'
             }
         }
 
@@ -43,10 +43,10 @@ pipeline {
         stage('Deploy Golang to DEV') {
             steps {
                 script {
-                    echo 'Clearing server_golang-related images and containers...'
+                    echo 'Clearing jenkins-tele-related images and containers...'
                     sh '''
-                        docker container stop server-golang || echo "No container named server-golang to stop"
-                        docker container rm server-golang || echo "No container named server-golang to remove"
+                        docker container stop jenkins-tele || echo "No container named jenkins-tele to stop"
+                        docker container rm jenkins-tele || echo "No container named jenkins-tele to remove"
                         docker image rm ${DOCKER_IMAGE}:${DOCKER_TAG} || echo "No image ${DOCKER_IMAGE}:${DOCKER_TAG} to remove"
                     '''
 
@@ -57,27 +57,8 @@ pipeline {
                         # Kiểm tra và tạo network nếu cần
                         docker network inspect dev >/dev/null 2>&1 || docker network create dev
 
-                        docker container run -d --rm --name server-golang -p 3006:3005 --network dev ${DOCKER_IMAGE}:${DOCKER_TAG}
+                        docker container run -d --rm --name jenkins-tele -p 3000:3000 --network dev ${DOCKER_IMAGE}:${DOCKER_TAG}
                     '''
-                }
-            }
-        }
-
-        stage('Deploy to Production on AWS') {
-            steps {
-                script {
-                    echo 'Deploying to Production...'
-                    sshagent(['aws-ssh-key']) {
-                        sh '''
-                            ssh -o StrictHostKeyChecking=no ${PROD_USER}@${PROD_SERVER} << EOF
-                            docker container stop server-golang || echo "No container to stop"
-                            docker container rm server-golang || echo "No container to remove"
-                            docker image rm ${DOCKER_IMAGE}:${DOCKER_TAG} || echo "No image to remove"
-                            docker image pull ${DOCKER_IMAGE}:${DOCKER_TAG} || { echo "Failed to pull image"; exit 1; }
-                            docker container run -d --rm --name server-golang -p 3006:3005 ${DOCKER_IMAGE}:${DOCKER_TAG} || { echo "Failed to run container"; exit 1; }
-EOF
-                        '''
-                    }
                 }
             }
         }
